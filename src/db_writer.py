@@ -1,19 +1,30 @@
-"""
-Database writer module
-
-TODO (Team):
-- Insert raw GTFS-RT payloads
-- Insert parsed trip updates
-- Insert parsed alerts
-"""
-
-def insert_raw_feed(*args, **kwargs):
-    raise NotImplementedError
+from sqlalchemy import text
 
 
-def insert_trip_updates(*args, **kwargs):
-    raise NotImplementedError
+def insert_trip_updates(engine, rows):
+    if not rows:
+        return
 
+    query = text("""
+        INSERT INTO trip_updates (
+            fetched_at,
+            feed_path,
+            trip_id,
+            route_id,
+            stop_id,
+            arrival_time,
+            arrival_delay
+        )
+        VALUES (
+            :timestamp,
+            :feed_path,
+            :trip_id,
+            :route_id,
+            :stop_id,
+            :arrival_time,
+            :delay
+        )
+    """)
 
-def insert_alerts(*args, **kwargs):
-    raise NotImplementedError
+    with engine.begin() as conn:
+        conn.execute(query, rows)
