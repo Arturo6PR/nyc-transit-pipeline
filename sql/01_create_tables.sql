@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS trip_updates (
   arrival_time BIGINT,
   arrival_delay INTEGER,
   departure_time BIGINT,
-  departure_delay INTEGER
+  departure_delay INTEGER,
+  UNIQUE (feed_path, trip_id, stop_id, arrival_time)
 );
 
 -- Part 3: Parsed alerts
@@ -35,5 +36,6 @@ CREATE TABLE IF NOT EXISTS alerts (
   cause TEXT,
   effect TEXT,
   header_text TEXT,
-  description_text TEXT
+  description_text TEXT,
+  UNIQUE (alert_id, feed_path)
 );
