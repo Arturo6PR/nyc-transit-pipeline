@@ -11,6 +11,7 @@ from transitpulse import __version__
 from transitpulse.errors import TransitPulseError
 from transitpulse.pipeline import ingest_feed, summarize
 from transitpulse.render import render
+from transitpulse.schedule_pipeline import ingest_schedule
 
 EXIT_SUCCESS = 0
 EXIT_OPERATIONAL_FAILURE = 2
@@ -48,6 +49,23 @@ def build_parser() -> argparse.ArgumentParser:
     ingest.add_argument("--timeout", type=float, default=20, help="URL timeout in seconds")
     _output_options(ingest)
 
+    schedule = commands.add_parser("schedule", help="work with static GTFS Schedule data")
+    schedule_commands = schedule.add_subparsers(dest="schedule_command", required=True)
+    schedule_ingest = schedule_commands.add_parser(
+        "ingest", help="ingest a GTFS Schedule directory or ZIP"
+    )
+    schedule_ingest.add_argument("input", help="GTFS Schedule directory or .zip file")
+    schedule_ingest.add_argument(
+        "--database",
+        type=Path,
+        default=Path("transitpulse.duckdb"),
+        help="DuckDB path (default: transitpulse.duckdb)",
+    )
+    schedule_ingest.add_argument(
+        "--source", help="source label shared with matching realtime feeds"
+    )
+    _output_options(schedule_ingest)
+
     summary = commands.add_parser("summary", help="summarize the local analytical store")
     summary.add_argument(
         "--database",
@@ -77,6 +95,13 @@ def run(argv: Sequence[str] | None = None) -> int:
                 database=args.database,
                 source_label=args.source,
                 timeout=args.timeout,
+            )
+            exit_code = EXIT_DUPLICATE if report["status"] == "DUPLICATE" else EXIT_SUCCESS
+        elif args.command == "schedule":
+            report = ingest_schedule(
+                args.input,
+                database=args.database,
+                source_label=args.source,
             )
             exit_code = EXIT_DUPLICATE if report["status"] == "DUPLICATE" else EXIT_SUCCESS
         else:

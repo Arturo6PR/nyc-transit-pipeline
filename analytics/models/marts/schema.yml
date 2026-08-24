@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: dim_routes
+    description: Active GTFS Schedule routes for each source.
+    columns:
+      - name: route_id
+        data_tests: [not_null]
+  - name: dim_stops
+    description: Active GTFS Schedule stops for each source.
+    columns:
+      - name: stop_id
+        data_tests: [not_null]
+      - name: stop_name
+        data_tests: [not_null]
+  - name: fct_stop_reliability
+    description: One real-time stop prediction enriched with its static schedule match.
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]
+      - name: source
+        data_tests: [not_null]
+      - name: route_id
+        data_tests: [not_null]
+      - name: trip_id
+        data_tests: [not_null]
+      - name: stop_id
+        data_tests: [not_null]
+  - name: route_reliability_hourly
+    description: Hourly delay distribution and delayed-event rate by route.
+    columns:
+      - name: source
+        data_tests: [not_null]
+      - name: route_id
+        data_tests: [not_null]
+      - name: event_count
+        data_tests: [not_null]
+  - name: station_reliability
+    description: Delay distribution by transit stop.
+    columns:
+      - name: stop_id
+        data_tests: [not_null]
+  - name: feed_quality
+    description: Schedule-match and missing-delay quality indicators by source.
+    columns:
+      - name: source
+        data_tests: [unique, not_null]

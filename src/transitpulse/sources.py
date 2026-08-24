@@ -49,7 +49,7 @@ def load_payload(
         raise InputLoadError("timeout must be greater than zero")
 
     if _is_url(location):
-        request = Request(location, headers={"User-Agent": "TransitPulse/0.1"})
+        request = Request(location, headers={"User-Agent": "TransitPulse/0.2"})
         try:
             with urlopen(request, timeout=timeout) as response:
                 data = response.read()

@@ -6,7 +6,7 @@ from transitpulse.render import render_json, render_text
 
 
 def test_json_rendering_is_sorted_deterministic_and_parseable() -> None:
-    report = {"operation": "summary", "report_schema_version": "1.0", "counts": {"z": 1}}
+    report = {"operation": "summary", "report_schema_version": "1.1", "counts": {"z": 1}}
 
     first = render_json(report)
     second = render_json(report)

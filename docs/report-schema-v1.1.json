@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Arturo6PR/nyc-transit-pipeline/blob/main/docs/report-schema-v1.json",
-  "title": "TransitPulse report schema v1",
+  "$id": "https://github.com/Arturo6PR/nyc-transit-pipeline/blob/main/docs/report-schema-v1.1.json",
+  "title": "TransitPulse report schema v1.1",
   "oneOf": [
     {
       "type": "object",
@@ -18,7 +18,7 @@
         "counts"
       ],
       "properties": {
-        "report_schema_version": { "const": "1.0" },
+        "report_schema_version": { "const": "1.1" },
         "operation": { "const": "ingest" },
         "status": { "enum": ["INGESTED", "DUPLICATE"] },
         "ingestion_id": { "type": "string", "pattern": "^[0-9a-f]{24}$" },
@@ -43,6 +43,40 @@
       "required": [
         "report_schema_version",
         "operation",
+        "status",
+        "schedule_id",
+        "source",
+        "content_sha256",
+        "input_format",
+        "counts"
+      ],
+      "properties": {
+        "report_schema_version": { "const": "1.1" },
+        "operation": { "const": "schedule_ingest" },
+        "status": { "enum": ["IMPORTED", "DUPLICATE"] },
+        "schedule_id": { "type": "string", "pattern": "^[0-9a-f]{24}$" },
+        "source": { "type": "string", "minLength": 1 },
+        "content_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "input_format": { "enum": ["directory", "zip"] },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["routes", "trips", "stops", "stop_times"],
+          "properties": {
+            "routes": { "type": "integer", "minimum": 0 },
+            "trips": { "type": "integer", "minimum": 0 },
+            "stops": { "type": "integer", "minimum": 0 },
+            "stop_times": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_schema_version",
+        "operation",
         "database_schema_version",
         "counts",
         "delay_threshold_seconds",
@@ -50,17 +84,18 @@
         "alert_effects"
       ],
       "properties": {
-        "report_schema_version": { "const": "1.0" },
+        "report_schema_version": { "const": "1.1" },
         "operation": { "const": "summary" },
-        "database_schema_version": { "const": 1 },
+        "database_schema_version": { "const": 2 },
         "counts": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["ingestions", "trip_stop_events", "alerts"],
+          "required": ["ingestions", "trip_stop_events", "alerts", "schedule_imports"],
           "properties": {
             "ingestions": { "type": "integer", "minimum": 0 },
             "trip_stop_events": { "type": "integer", "minimum": 0 },
-            "alerts": { "type": "integer", "minimum": 0 }
+            "alerts": { "type": "integer", "minimum": 0 },
+            "schedule_imports": { "type": "integer", "minimum": 0 }
           }
         },
         "delay_threshold_seconds": { "type": "integer", "minimum": 0 },

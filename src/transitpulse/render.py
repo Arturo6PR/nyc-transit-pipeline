@@ -26,6 +26,22 @@ def render_text(report: Mapping[str, object]) -> str:
         ]
         return "\n".join(lines) + "\n"
 
+    if operation == "schedule_ingest":
+        counts = report["counts"]
+        assert isinstance(counts, dict)
+        lines = [
+            "TransitPulse schedule ingestion",
+            f"Status: {report['status']}",
+            f"Source: {report['source']}",
+            f"Schedule ID: {report['schedule_id']}",
+            f"Input format: {report['input_format']}",
+            f"Routes: {counts['routes']}",
+            f"Trips: {counts['trips']}",
+            f"Stops: {counts['stops']}",
+            f"Stop times: {counts['stop_times']}",
+        ]
+        return "\n".join(lines) + "\n"
+
     counts = report["counts"]
     routes = report["routes"]
     alert_effects = report["alert_effects"]
@@ -36,6 +52,7 @@ def render_text(report: Mapping[str, object]) -> str:
     lines = [
         "TransitPulse summary",
         f"Ingestions: {counts['ingestions']}",
+        f"Schedule imports: {counts['schedule_imports']}",
         f"Trip-stop events: {counts['trip_stop_events']}",
         f"Alerts: {counts['alerts']}",
         f"Delayed threshold: {report['delay_threshold_seconds']} seconds",

@@ -10,8 +10,9 @@ import duckdb
 
 from transitpulse.errors import StorageError
 from transitpulse.models import ParsedFeed
+from transitpulse.schedule_models import ParsedSchedule
 
-DATABASE_SCHEMA_VERSION = 1
+DATABASE_SCHEMA_VERSION = 2
 DELAY_THRESHOLD_SECONDS = 300
 
 
@@ -26,8 +27,15 @@ class TransitStore:
             value = str(path)
         try:
             self.connection = duckdb.connect(value)
-            self._initialize()
         except (duckdb.Error, OSError) as exc:
+            raise StorageError(f"could not open analytical store: {exc}") from exc
+        try:
+            self._initialize()
+        except StorageError:
+            self.connection.close()
+            raise
+        except (duckdb.Error, OSError) as exc:
+            self.connection.close()
             raise StorageError(f"could not open analytical store: {exc}") from exc
 
     def __enter__(self) -> TransitStore:
@@ -51,8 +59,26 @@ class TransitStore:
                 key VARCHAR PRIMARY KEY,
                 value VARCHAR NOT NULL
             );
-            INSERT OR IGNORE INTO metadata VALUES ('schema_version', '1');
+            """
+        )
+        version_row = self.connection.execute(
+            "SELECT value FROM metadata WHERE key = 'schema_version'"
+        ).fetchone()
+        if version_row is not None:
+            try:
+                current_version = int(version_row[0])
+            except (TypeError, ValueError) as exc:
+                raise StorageError(
+                    f"database has invalid schema version: {version_row[0]}"
+                ) from exc
+            if current_version > DATABASE_SCHEMA_VERSION:
+                raise StorageError(
+                    f"database schema {current_version} is newer than supported schema "
+                    f"{DATABASE_SCHEMA_VERSION}"
+                )
 
+        self.connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS ingestion_runs (
                 ingestion_id VARCHAR PRIMARY KEY,
                 source VARCHAR NOT NULL,
@@ -94,7 +120,71 @@ class TransitStore:
                 active_end BIGINT,
                 route_ids_json VARCHAR NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS schedule_imports (
+                schedule_id VARCHAR PRIMARY KEY,
+                source VARCHAR NOT NULL,
+                content_sha256 VARCHAR NOT NULL,
+                input_format VARCHAR NOT NULL,
+                route_count INTEGER NOT NULL,
+                trip_count INTEGER NOT NULL,
+                stop_count INTEGER NOT NULL,
+                stop_time_count INTEGER NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS schedule_sources (
+                source VARCHAR PRIMARY KEY,
+                active_schedule_id VARCHAR NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS schedule_raw_archives (
+                schedule_id VARCHAR PRIMARY KEY,
+                payload BLOB NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS schedule_routes (
+                schedule_id VARCHAR NOT NULL,
+                route_id VARCHAR NOT NULL,
+                route_short_name VARCHAR,
+                route_long_name VARCHAR,
+                route_type INTEGER NOT NULL,
+                PRIMARY KEY (schedule_id, route_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS schedule_trips (
+                schedule_id VARCHAR NOT NULL,
+                trip_id VARCHAR NOT NULL,
+                route_id VARCHAR NOT NULL,
+                service_id VARCHAR NOT NULL,
+                trip_headsign VARCHAR,
+                direction_id INTEGER,
+                PRIMARY KEY (schedule_id, trip_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS schedule_stops (
+                schedule_id VARCHAR NOT NULL,
+                stop_id VARCHAR NOT NULL,
+                stop_name VARCHAR NOT NULL,
+                stop_lat DOUBLE,
+                stop_lon DOUBLE,
+                parent_station VARCHAR,
+                PRIMARY KEY (schedule_id, stop_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS schedule_stop_times (
+                schedule_id VARCHAR NOT NULL,
+                trip_id VARCHAR NOT NULL,
+                stop_sequence INTEGER NOT NULL,
+                stop_id VARCHAR NOT NULL,
+                arrival_seconds INTEGER NOT NULL,
+                departure_seconds INTEGER NOT NULL,
+                PRIMARY KEY (schedule_id, trip_id, stop_sequence)
+            );
             """
+        )
+        self.connection.execute(
+            "INSERT OR REPLACE INTO metadata VALUES ('schema_version', ?)",
+            [str(DATABASE_SCHEMA_VERSION)],
         )
 
     def has_ingestion(self, ingestion_id: str) -> bool:
@@ -182,13 +272,110 @@ class TransitStore:
             raise StorageError(f"could not persist feed: {exc}") from exc
         return True
 
+    def has_schedule(self, schedule_id: str) -> bool:
+        row = self.connection.execute(
+            "SELECT 1 FROM schedule_imports WHERE schedule_id = ?", [schedule_id]
+        ).fetchone()
+        return row is not None
+
+    def ingest_schedule(
+        self,
+        *,
+        schedule_id: str,
+        source: str,
+        content_sha256: str,
+        input_format: str,
+        raw_payload: bytes,
+        schedule: ParsedSchedule,
+    ) -> bool:
+        """Persist one validated schedule and make it active for its source."""
+        if self.has_schedule(schedule_id):
+            return False
+
+        try:
+            self.connection.execute("BEGIN TRANSACTION")
+            self.connection.execute(
+                "INSERT INTO schedule_imports VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    schedule_id,
+                    source,
+                    content_sha256,
+                    input_format,
+                    len(schedule.routes),
+                    len(schedule.trips),
+                    len(schedule.stops),
+                    len(schedule.stop_times),
+                ],
+            )
+            self.connection.execute(
+                "INSERT INTO schedule_raw_archives VALUES (?, ?)",
+                [schedule_id, raw_payload],
+            )
+            for route in schedule.routes:
+                self.connection.execute(
+                    "INSERT INTO schedule_routes VALUES (?, ?, ?, ?, ?)",
+                    [
+                        schedule_id,
+                        route.route_id,
+                        route.route_short_name,
+                        route.route_long_name,
+                        route.route_type,
+                    ],
+                )
+            for trip in schedule.trips:
+                self.connection.execute(
+                    "INSERT INTO schedule_trips VALUES (?, ?, ?, ?, ?, ?)",
+                    [
+                        schedule_id,
+                        trip.trip_id,
+                        trip.route_id,
+                        trip.service_id,
+                        trip.trip_headsign,
+                        trip.direction_id,
+                    ],
+                )
+            for stop in schedule.stops:
+                self.connection.execute(
+                    "INSERT INTO schedule_stops VALUES (?, ?, ?, ?, ?, ?)",
+                    [
+                        schedule_id,
+                        stop.stop_id,
+                        stop.stop_name,
+                        stop.stop_lat,
+                        stop.stop_lon,
+                        stop.parent_station,
+                    ],
+                )
+            for stop_time in schedule.stop_times:
+                self.connection.execute(
+                    "INSERT INTO schedule_stop_times VALUES (?, ?, ?, ?, ?, ?)",
+                    [
+                        schedule_id,
+                        stop_time.trip_id,
+                        stop_time.stop_sequence,
+                        stop_time.stop_id,
+                        stop_time.arrival_seconds,
+                        stop_time.departure_seconds,
+                    ],
+                )
+            self.connection.execute(
+                "INSERT OR REPLACE INTO schedule_sources VALUES (?, ?)",
+                [source, schedule_id],
+            )
+            self.connection.execute("COMMIT")
+        except duckdb.Error as exc:
+            self.connection.execute("ROLLBACK")
+            raise StorageError(f"could not persist GTFS Schedule: {exc}") from exc
+        return True
+
     def summary(self) -> dict[str, object]:
         counts = self.connection.execute(
             """
             SELECT
                 (SELECT COUNT(*) FROM ingestion_runs),
                 (SELECT COUNT(*) FROM trip_stop_events),
-                (SELECT COUNT(*) FROM alerts)
+                (SELECT COUNT(*) FROM alerts),
+                (SELECT COUNT(*) FROM schedule_imports)
             """
         ).fetchone()
         assert counts is not None
@@ -227,6 +414,7 @@ class TransitStore:
                 "ingestions": int(counts[0]),
                 "trip_stop_events": int(counts[1]),
                 "alerts": int(counts[2]),
+                "schedule_imports": int(counts[3]),
             },
             "delay_threshold_seconds": DELAY_THRESHOLD_SECONDS,
             "routes": [

@@ -5,11 +5,10 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+from transitpulse.constants import REPORT_SCHEMA_VERSION
 from transitpulse.parser import parse_feed
 from transitpulse.sources import load_payload
 from transitpulse.storage import TransitStore
-
-REPORT_SCHEMA_VERSION = "1.0"
 
 
 def _digest(*parts: str) -> str:

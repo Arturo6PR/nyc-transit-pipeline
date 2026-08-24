@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 from google.transit import gtfs_realtime_pb2
@@ -89,4 +90,31 @@ def feed_file(tmp_path: Path, feed_bytes: bytes) -> Path:
 def base64_feed_file(tmp_path: Path, feed_bytes: bytes) -> Path:
     path = tmp_path / "feed sample.pb64"
     path.write_bytes(base64.b64encode(feed_bytes))
+    return path
+
+
+@pytest.fixture
+def schedule_files() -> dict[str, bytes]:
+    schedule_path = Path(__file__).parents[1] / "examples" / "gtfs_schedule"
+    return {
+        name: (schedule_path / name).read_bytes()
+        for name in ("routes.txt", "trips.txt", "stops.txt", "stop_times.txt")
+    }
+
+
+@pytest.fixture
+def schedule_dir(tmp_path: Path, schedule_files: dict[str, bytes]) -> Path:
+    path = tmp_path / "schedule with spaces"
+    path.mkdir()
+    for name, data in schedule_files.items():
+        (path / name).write_bytes(data)
+    return path
+
+
+@pytest.fixture
+def schedule_zip(tmp_path: Path, schedule_files: dict[str, bytes]) -> Path:
+    path = tmp_path / "schedule.zip"
+    with ZipFile(path, "w", ZIP_DEFLATED) as archive:
+        for name, data in reversed(tuple(schedule_files.items())):
+            archive.writestr(f"nested/{name}", data)
     return path

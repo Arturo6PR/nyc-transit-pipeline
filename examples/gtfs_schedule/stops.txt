@@ -1,0 +1,5 @@
+stop_id,stop_name,stop_lat,stop_lon,parent_station
+A01N,Inwood - 207 St,40.868072,-73.919899,
+A02N,190 St,40.859022,-73.934180,
+B03N,47-50 Sts - Rockefeller Ctr,40.758663,-73.981329,
+B04N,7 Av,40.762862,-73.981637,

@@ -1,0 +1,3 @@
+agency_id,route_id,route_short_name,route_long_name,route_type
+MTA,A,A,8 Avenue Express,1
+MTA,B,B,6 Avenue Express,1

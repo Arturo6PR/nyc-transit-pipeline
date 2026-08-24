@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: transitpulse
+    schema: main
+    tables:
+      - name: ingestion_runs
+      - name: trip_stop_events
+      - name: schedule_sources
+      - name: schedule_routes
+      - name: schedule_trips
+      - name: schedule_stops
+      - name: schedule_stop_times

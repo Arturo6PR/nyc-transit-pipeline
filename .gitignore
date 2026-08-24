@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.pytest-tmp/
 .ruff_cache/
 .coverage
 htmlcov/
@@ -15,6 +16,11 @@ htmlcov/
 *.duckdb
 *.duckdb.wal
 reports/
+analytics/logs/
+analytics/target/
+analytics/dbt_packages/
+analytics/.user.yml
+analytics/reports/
 
 # Editors and operating systems
 .idea/

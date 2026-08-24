@@ -1,0 +1,8 @@
+transitpulse:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('TRANSITPULSE_DATABASE', 'transitpulse.duckdb') }}"
+      schema: analytics
+      threads: 1

@@ -143,3 +143,100 @@ def test_invalid_format_is_cli_usage_failure(capsys: pytest.CaptureFixture[str])
 
     assert exc_info.value.code == EXIT_OPERATIONAL_FAILURE
     assert capsys.readouterr().err.startswith("usage:")
+
+
+def test_schedule_ingestion_and_duplicate_exit_codes(
+    schedule_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    database = tmp_path / "schedule.duckdb"
+    arguments = [
+        "schedule",
+        "ingest",
+        str(schedule_dir),
+        "--database",
+        str(database),
+        "--source",
+        "mta-sample",
+        "--format",
+        "json",
+    ]
+
+    assert run(arguments) == EXIT_SUCCESS
+    first = json.loads(capsys.readouterr().out)
+    assert first["operation"] == "schedule_ingest"
+    assert first["status"] == "IMPORTED"
+
+    assert run(arguments) == EXIT_DUPLICATE
+    duplicate = json.loads(capsys.readouterr().out)
+    assert duplicate["status"] == "DUPLICATE"
+    assert duplicate["schedule_id"] == first["schedule_id"]
+
+
+def test_schedule_output_file_keeps_stdout_empty(
+    schedule_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "reports" / "schedule.json"
+
+    code = run(
+        [
+            "schedule",
+            "ingest",
+            str(schedule_dir),
+            "--database",
+            str(tmp_path / "schedule.duckdb"),
+            "--format",
+            "json",
+            "--output",
+            str(output),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert code == EXIT_SUCCESS
+    assert captured.out == ""
+    assert captured.err == ""
+    assert json.loads(output.read_text(encoding="utf-8"))["status"] == "IMPORTED"
+    assert b"\r\n" not in output.read_bytes()
+
+
+def test_first_schedule_json_is_byte_identical_across_databases(
+    schedule_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outputs: list[str] = []
+    for name in ("schedule-one.duckdb", "schedule-two.duckdb"):
+        code = run(
+            [
+                "schedule",
+                "ingest",
+                str(schedule_dir),
+                "--database",
+                str(tmp_path / name),
+                "--source",
+                "mta-sample",
+                "--format",
+                "json",
+            ]
+        )
+        assert code == EXIT_SUCCESS
+        outputs.append(capsys.readouterr().out)
+
+    assert outputs[0].encode() == outputs[1].encode()
+
+
+def test_invalid_schedule_is_operational_failure(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = run(
+        [
+            "schedule",
+            "ingest",
+            str(tmp_path / "missing"),
+            "--database",
+            str(tmp_path / "schedule.duckdb"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert code == EXIT_OPERATIONAL_FAILURE
+    assert captured.out == ""
+    assert captured.err.startswith("transitpulse: error:")

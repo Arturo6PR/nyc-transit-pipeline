@@ -28,7 +28,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install
-        run: python -m pip install -e ".[dev]"
+        run: python -m pip install -e ".[dev,analytics]"
+      - name: Verify dependencies
+        run: python -m pip check
       - name: Lint
         run: ruff check .
       - name: Format
@@ -36,8 +38,22 @@ jobs:
       - name: Test
         run: pytest
       - name: Offline CLI smoke test
+        env:
+          TRANSITPULSE_DATABASE: ${{ github.workspace }}/smoke.duckdb
         run: >-
           transitpulse ingest examples/mta_sample.pb64
           --database smoke.duckdb
+          --source mta-sample
           --format json
           --output smoke-report.json
+      - name: Offline schedule smoke test
+        run: >-
+          transitpulse schedule ingest examples/gtfs_schedule
+          --database smoke.duckdb
+          --source mta-sample
+          --format json
+          --output schedule-report.json
+      - name: Build and test analytical marts
+        env:
+          TRANSITPULSE_DATABASE: ${{ github.workspace }}/smoke.duckdb
+        run: dbt build --project-dir analytics --profiles-dir analytics
