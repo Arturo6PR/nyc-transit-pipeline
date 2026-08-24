@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
-import sys
+import sysconfig
 from pathlib import Path
 
 import duckdb
@@ -17,7 +18,12 @@ def _dbt_build(
     environment = os.environ.copy()
     environment["TRANSITPULSE_DATABASE"] = str(database)
     environment["DBT_SEND_ANONYMOUS_USAGE_STATS"] = "false"
-    dbt_executable = Path(sys.executable).with_name("dbt.exe" if os.name == "nt" else "dbt")
+    executable_name = "dbt.exe" if os.name == "nt" else "dbt"
+    scripts_executable = Path(sysconfig.get_path("scripts")) / executable_name
+    dbt_executable = (
+        str(scripts_executable) if scripts_executable.is_file() else shutil.which("dbt")
+    )
+    assert dbt_executable is not None
     return subprocess.run(
         [
             str(dbt_executable),
