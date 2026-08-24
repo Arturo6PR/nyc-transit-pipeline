@@ -1,15 +1,23 @@
-# Environment / secrets
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environments and secrets
+.venv/
 .env
 
-# Virtual environment
-.venv/
+# TransitPulse local data
+*.duckdb
+*.duckdb.wal
+reports/
 
-# Python cache
-__pycache__/
-*.pyc
-
-# IDE
+# Editors and operating systems
 .idea/
-
-# OS
+.vscode/
 .DS_Store
+Thumbs.db

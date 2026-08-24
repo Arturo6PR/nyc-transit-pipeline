@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Arturo6PR/nyc-transit-pipeline/blob/main/docs/report-schema-v1.json",
+  "title": "TransitPulse report schema v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_schema_version",
+        "operation",
+        "status",
+        "ingestion_id",
+        "source",
+        "payload_sha256",
+        "feed_timestamp",
+        "incrementality",
+        "counts"
+      ],
+      "properties": {
+        "report_schema_version": { "const": "1.0" },
+        "operation": { "const": "ingest" },
+        "status": { "enum": ["INGESTED", "DUPLICATE"] },
+        "ingestion_id": { "type": "string", "pattern": "^[0-9a-f]{24}$" },
+        "source": { "type": "string", "minLength": 1 },
+        "payload_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "feed_timestamp": { "type": ["integer", "null"] },
+        "incrementality": { "type": "string" },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["trip_stop_events", "alerts"],
+          "properties": {
+            "trip_stop_events": { "type": "integer", "minimum": 0 },
+            "alerts": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_schema_version",
+        "operation",
+        "database_schema_version",
+        "counts",
+        "delay_threshold_seconds",
+        "routes",
+        "alert_effects"
+      ],
+      "properties": {
+        "report_schema_version": { "const": "1.0" },
+        "operation": { "const": "summary" },
+        "database_schema_version": { "const": 1 },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ingestions", "trip_stop_events", "alerts"],
+          "properties": {
+            "ingestions": { "type": "integer", "minimum": 0 },
+            "trip_stop_events": { "type": "integer", "minimum": 0 },
+            "alerts": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "delay_threshold_seconds": { "type": "integer", "minimum": 0 },
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "route_id",
+              "event_count",
+              "average_delay_seconds",
+              "delayed_event_count"
+            ],
+            "properties": {
+              "route_id": { "type": "string" },
+              "event_count": { "type": "integer", "minimum": 0 },
+              "average_delay_seconds": { "type": ["number", "null"] },
+              "delayed_event_count": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "alert_effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["effect", "alert_count"],
+            "properties": {
+              "effect": { "type": "string" },
+              "alert_count": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
